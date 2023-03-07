@@ -4,26 +4,35 @@ import java.time.LocalDateTime;
 
 public class Message {
 
-  public final String MESSAGE_FORM = "|%s| USER%d: %s";
+  private static final String CHAT_MESSAGE_PATTERN = "[%s]USER%d:%s";
 
   private final int senderPort;
 
-  private final String message;
+  private final String messageText;
 
   private final LocalDateTime time;
 
-  public Message(int senderPort, String message, LocalDateTime time) {
+  public Message(int senderPort, String messageText, LocalDateTime time) {
     this.senderPort = senderPort;
-    this.message = message;
+    this.messageText = messageText;
     this.time = time;
-  }
-
-  @Override
-  public String toString() {
-    return String.format(MESSAGE_FORM, time.toString().substring(0, time.toString().lastIndexOf(".")).replace("T", " - "), senderPort, message);
   }
 
   public int getSenderPort() {
     return senderPort;
+  }
+
+  public String getMessageText() {
+    return messageText;
+  }
+
+  public LocalDateTime getTime() {
+    return time;
+  }
+
+  @Override
+  public String toString() {
+    String formattedTime = time.toString().substring(0, time.toString().lastIndexOf(".")).replace("T", " ");
+    return String.format(CHAT_MESSAGE_PATTERN, formattedTime, senderPort, messageText);
   }
 }

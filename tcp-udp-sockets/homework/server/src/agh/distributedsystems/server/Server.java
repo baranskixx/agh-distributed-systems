@@ -1,18 +1,20 @@
 package agh.distributedsystems.server;
 
 import agh.distributedsystems.common.Message;
+import agh.distributedsystems.server.thread.ClientConnectionThread;
 import agh.distributedsystems.server.thread.ConnectionInitThread;
+import agh.distributedsystems.server.thread.UdpReceiveThread;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.net.ServerSocket;
-import java.util.HashMap;
-import java.util.Map;
+import java.net.*;
+import java.util.*;
 
 public class Server {
 
   public static final String SERVER_ALREADY_STARTED_ERR_MSG = "Server is already running!";
 
+  public static final String DEFAULT_SERVER_ADDRESS = "localhost";
   public static final int DEFAULT_SERVER_PORT = 12345;
 
   private static Server instance = null;
@@ -23,7 +25,12 @@ public class Server {
 
   private ServerSocket socket;
 
-  private Map<Integer, PrintWriter> outStreams = new HashMap<>();
+  private ConnectionInitThread connectionInitThread;
+
+  private UdpReceiveThread udpReceiveThread;
+
+  private Map</*ClientPort*/Integer, /*ClientInStream*/PrintWriter> outStreamsTcp = new HashMap<>();
+
 
   public static Server getInstance() throws IOException {
     if (instance == null) {
@@ -42,19 +49,39 @@ public class Server {
       System.err.println(SERVER_ALREADY_STARTED_ERR_MSG);
     } else {
       started = true;
-      ConnectionInitThread connectionInitThread = new ConnectionInitThread(socket);
+      udpReceiveThread = new UdpReceiveThread();
+      connectionInitThread = new ConnectionInitThread();
+      udpReceiveThread.start();
       connectionInitThread.start();
     }
   }
 
-  public synchronized void addOutStreamToPort(int port, PrintWriter printWriter) {
-    outStreams.put(port, printWriter);
+  public synchronized void startNewClientConnection(Socket clientSocket) throws IOException {
+    PrintWriter clientOuputStream = new PrintWriter(clientSocket.getOutputStream(), true);
+    int clientPort = clientSocket.getPort();
+    outStreamsTcp.put(clientPort, clientOuputStream);
+    ClientConnectionThread clientConnectionThread = new ClientConnectionThread(clientSocket);
+    clientConnectionThread.start();
   }
 
-  public void sendMessageToEveryChatMember(Message message) {
-    for (int port : outStreams.keySet()) {
-      if (message.getSenderPort() != port) {
-        outStreams.get(port).println(message);
+  public void sendTcpMessage(Message message) {
+    for (int receiverPort : outStreamsTcp.keySet()) {
+      if (receiverPort != message.getSenderPort()) {
+        PrintWriter outStream = outStreamsTcp.get(receiverPort);
+        outStream.println(message);
+      }
+    }
+    System.out.println(message);
+  }
+
+  public void sendUdpMessage(DatagramSocket sender, String message, int senderPort) throws IOException {
+    InetAddress address = InetAddress.getByName(DEFAULT_SERVER_ADDRESS);
+    byte[] sendBuffer = message.getBytes("UTF-8");
+
+    for (int port : outStreamsTcp.keySet()) {
+      if (senderPort != port) {
+        DatagramPacket sendPacket = new DatagramPacket(sendBuffer, sendBuffer.length, address, port);
+        sender.send(sendPacket);
       }
     }
   }
@@ -65,5 +92,9 @@ public class Server {
 
   public ServerSocket getSocket() {
     return socket;
+  }
+
+  public Set<Integer> getPorts(){
+    return outStreamsTcp.keySet();
   }
 }

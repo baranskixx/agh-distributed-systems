@@ -5,28 +5,26 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.*;
-import java.util.Arrays;
 import java.util.Scanner;
 
 public class Client {
 
   private final static String SERVER_HOST_NAME = "localhost";
-
   private final static int SERVER_PORT = 12345;
-  private final Socket socket;
 
-  private final DatagramSocket datagramSocket;
+  private final Socket tcpSocket;
+  private final DatagramSocket udpSocket;
 
-  private final BufferedReader in;
-  private final PrintWriter out;
-
+  private final BufferedReader inStream;
+  private final PrintWriter outStream;
   private byte[] receiveBuffer = new byte[1024];
 
-  public Client() throws IOException {
-    this.socket = new Socket(SERVER_HOST_NAME, SERVER_PORT);
-    this.in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-    this.out = new PrintWriter(socket.getOutputStream(), true);
-    this.datagramSocket = new DatagramSocket();
+  public Client(int clientPort) throws IOException {
+    InetAddress address = InetAddress.getByName(SERVER_HOST_NAME);
+    this.tcpSocket = new Socket(address, SERVER_PORT, address, clientPort);
+    this.inStream = new BufferedReader(new InputStreamReader(tcpSocket.getInputStream()));
+    this.outStream = new PrintWriter(tcpSocket.getOutputStream(), true);
+    this.udpSocket = new DatagramSocket(clientPort);
   }
 
   public void start() {
@@ -36,17 +34,16 @@ public class Client {
         Scanner scanner = new Scanner(System.in);
         while (true) {
           String nextLine = scanner.nextLine();
-
-          if (nextLine.startsWith("-u")) {
-            byte[] sendBuffer = nextLine.substring(2).getBytes();
+          if (nextLine.startsWith("/u")) {
             try {
+              byte[] sendBuffer = nextLine.substring(2).getBytes("UTF-8");
               DatagramPacket sendPacket = new DatagramPacket(sendBuffer, sendBuffer.length, InetAddress.getByName("localhost"), SERVER_PORT);
-              datagramSocket.send(sendPacket);
+              udpSocket.send(sendPacket);
             } catch (IOException e) {
               throw new RuntimeException(e);
             }
           } else {
-            out.println(nextLine);
+            outStream.println(nextLine);
           }
         }
       }
@@ -57,7 +54,7 @@ public class Client {
       public void run() {
         while (true) {
           try {
-            String nextLine = in.readLine();
+            String nextLine = inStream.readLine();
             System.out.println(nextLine);
           } catch (IOException e) {
             throw new RuntimeException(e);
@@ -66,23 +63,26 @@ public class Client {
       }
     };
 
-    Thread inThrreadUDP = new Thread() {
+    Thread inThreadUDP = new Thread() {
       @Override
       public void run() {
-        while (true) {
-          try {
-            DatagramPacket receivePacket = new DatagramPacket(receiveBuffer, receiveBuffer.length);
-            datagramSocket.receive(receivePacket);
-            System.out.println(Arrays.toString(receivePacket.getData()));
-          } catch (IOException e) {
-            throw new RuntimeException(e);
+        DatagramPacket receivePacket = new DatagramPacket(receiveBuffer, receiveBuffer.length);
+        try {
+          while(true) {
+            udpSocket.receive(receivePacket);
+            String messageStr = new String(receivePacket.getData());
+            messageStr = messageStr.substring(0, messageStr.indexOf((char) 0));
+            System.out.println(messageStr);
           }
+        } catch (IOException e) {
+          throw new RuntimeException(e);
         }
       }
     };
 
+
     outThread.start();
     inThreadTCP.start();
-    inThrreadUDP.start();
+    inThreadUDP.start();
   }
 }
