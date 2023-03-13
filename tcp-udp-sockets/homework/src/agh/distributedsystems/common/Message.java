@@ -22,14 +22,6 @@ public class Message {
     return senderPort;
   }
 
-  public String getMessageText() {
-    return messageText;
-  }
-
-  public LocalDateTime getTime() {
-    return time;
-  }
-
   @Override
   public String toString() {
     String formattedTime = time.toString().substring(0, time.toString().lastIndexOf(".")).replace("T", " ");

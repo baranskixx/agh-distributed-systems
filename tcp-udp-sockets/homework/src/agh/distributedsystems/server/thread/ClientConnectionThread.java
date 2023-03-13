@@ -10,23 +10,24 @@ import java.time.LocalDateTime;
 
 public class ClientConnectionThread extends Thread {
 
-  private Server server;
-  private BufferedReader userInputStream;
-  private int port;
+  private Socket clientSocket;
 
-  public ClientConnectionThread(Socket clientSocket) throws IOException {
-    this.userInputStream = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-    this.server = Server.getInstance();
-    this.port = clientSocket.getPort();
+  public ClientConnectionThread(Socket clientSocket) {
+    this.clientSocket = clientSocket;
   }
 
   @Override
   public void run() {
     try {
+      BufferedReader userInputStream = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+      int clientPort = clientSocket.getPort();
+      Server server = Server.getInstance();
+
       while (true) {
         String messageText = userInputStream.readLine();
-        server.sendTcpMessage(new Message(port, messageText, LocalDateTime.now()));
+        server.sendTcpMessage(new Message(clientPort, messageText, LocalDateTime.now()));
       }
+
     } catch (IOException e) {
       e.printStackTrace();
     }

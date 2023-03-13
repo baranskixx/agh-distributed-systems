@@ -12,16 +12,12 @@ import java.util.*;
 
 public class Server {
 
-  public static final String SERVER_ALREADY_STARTED_ERR_MSG = "Server is already running!";
-
   public static final String DEFAULT_SERVER_ADDRESS = "localhost";
   public static final int DEFAULT_SERVER_PORT = 12345;
 
   private static Server instance = null;
 
   private final int portNumber;
-
-  private boolean started = false;
 
   private ServerSocket socket;
 
@@ -45,15 +41,10 @@ public class Server {
   }
 
   public void start() throws IOException {
-    if (started) {
-      System.err.println(SERVER_ALREADY_STARTED_ERR_MSG);
-    } else {
-      started = true;
       udpReceiveThread = new UdpReceiveThread();
       connectionInitThread = new ConnectionInitThread();
       udpReceiveThread.start();
       connectionInitThread.start();
-    }
   }
 
   public synchronized void startNewClientConnection(Socket clientSocket) throws IOException {
@@ -92,9 +83,5 @@ public class Server {
 
   public ServerSocket getSocket() {
     return socket;
-  }
-
-  public Set<Integer> getPorts(){
-    return outStreamsTcp.keySet();
   }
 }
